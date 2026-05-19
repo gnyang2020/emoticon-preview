@@ -172,7 +172,7 @@
     width: 100%;
     max-width: 500px;
     aspect-ratio: 9 / 19.5;
-    max-height: calc(100vh - 220px);
+    max-height: calc(100vh - 100px);
     background: var(--bg-chat-light);
     border-radius: 28px;
     overflow: hidden;
@@ -232,8 +232,8 @@
   }
 
   .emoticon {
-    width: 210px;
-    height: 210px;
+    width: clamp(140px, 20vh, 210px);
+    height: clamp(140px, 20vh, 210px);
     object-fit: contain;
     display: block;
     background: transparent;
