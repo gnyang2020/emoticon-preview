@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EMOTICON PREVIEW</title>
+<style>
+  :root {
+    --bg-page: #f5f5f7;
+    --bg-chat-light: #b8c5d6;
+    --bg-chat-dark: #000000;
+    --text-light: #888;
+    --text-dark: #999;
+    --accent: #4a90e2;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "맑은 고딕", "Malgun Gothic", sans-serif;
+    background: var(--bg-page);
+    min-height: 100vh;
+    padding: 20px 16px 40px;
+    color: #222;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 500px 500px;
+    grid-template-rows: auto 1fr;
+    column-gap: 32px;
+    row-gap: 14px;
+    max-width: 1032px;
+    margin: 0 auto;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .layout > header { grid-column: 1; grid-row: 1; }
+  .phone-col {
+    grid-column: 1;
+    grid-row: 2;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .ad-col {
+    grid-column: 2;
+    grid-row: 2;
+    min-width: 0;
+  }
+
+  .note-wrap {
+    max-width: 1032px;
+    margin: 14px auto 0;
+    display: flex;
+    justify-content: center;
+  }
+
+  @media (max-width: 1100px) {
+    .layout {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto auto auto;
+      max-width: 500px;
+    }
+    .layout > header { grid-column: 1; grid-row: 1; }
+    .phone-col       { grid-column: 1; grid-row: 2; }
+    .ad-col          { grid-column: 1; grid-row: 3; }
+  }
+
+  header {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  h1 {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: #222;
+  }
+
+  .toolbar {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    user-select: none;
+    font-size: 13px;
+    padding: 6px 10px;
+    border-radius: 16px;
+    background: white;
+    border: 1px solid #ddd;
+  }
+
+  .toggle input { width: 16px; height: 16px; accent-color: var(--accent); }
+
+  .btn {
+    padding: 7px 14px;
+    border-radius: 16px;
+    background: white;
+    border: 1px solid #ddd;
+    cursor: pointer;
+    font-size: 13px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: inherit;
+    color: #222;
+  }
+
+  .btn:hover { background: #f0f0f0; }
+  .btn:active { transform: scale(0.97); }
+
+  .color-picker { position: relative; }
+
+  .swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 1px solid rgba(0,0,0,0.18);
+    display: inline-block;
+    flex-shrink: 0;
+  }
+
+  .color-palette {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 14px;
+    padding: 12px;
+    display: grid;
+    grid-template-columns: repeat(4, 36px);
+    gap: 10px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+    z-index: 20;
+  }
+
+  .color-palette[hidden] { display: none; }
+
+  .color-palette button {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid rgba(0,0,0,0.12);
+    cursor: pointer;
+    padding: 0;
+    transition: transform 0.12s;
+  }
+
+  .color-palette button:hover { transform: scale(1.08); }
+
+  .color-palette button.selected {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .chat-frame {
+    width: 100%;
+    max-width: 500px;
+    aspect-ratio: 9 / 19.5;
+    max-height: calc(100vh - 220px);
+    background: var(--bg-chat-light);
+    border-radius: 28px;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.12);
+    transition: background 0.25s ease;
+  }
+
+  .chat-frame.dark { background: var(--bg-chat-dark); }
+
+  .chat-area {
+    flex: 1;
+    min-height: 0;
+    padding: 20px 12px 80px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    scrollbar-width: thin;
+  }
+
+  .chat-area::-webkit-scrollbar { width: 6px; }
+  .chat-area::-webkit-scrollbar-thumb {
+    background: rgba(0,0,0,0.2);
+    border-radius: 3px;
+  }
+  .chat-frame.dark .chat-area::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.2);
+  }
+
+  .chat-bubble {
+    display: flex;
+    justify-content: flex-end;
+    align-items: flex-end;
+    gap: 6px;
+  }
+
+  .bubble-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    font-size: 11px;
+    color: var(--text-light);
+    padding-bottom: 4px;
+  }
+
+  .chat-frame.dark .bubble-meta { color: var(--text-dark); }
+
+  .bubble-meta .unread {
+    color: #ffcd00;
+    font-weight: 700;
+    font-size: 11px;
+  }
+
+  .emoticon {
+    width: 245px;
+    height: 245px;
+    object-fit: contain;
+    display: block;
+    background: transparent;
+    flex-shrink: 0;
+  }
+
+  .input-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(255,255,255,0.97);
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-top: 1px solid rgba(0,0,0,0.06);
+  }
+
+  .chat-frame.dark .input-bar {
+    background: rgba(30,30,30,0.97);
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .icon-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #ebebeb;
+    color: #555;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+
+  .chat-frame.dark .icon-btn { background: #2a2a2a; color: #ccc; }
+
+  .msg-input {
+    flex: 1;
+    border: none;
+    background: #ebebeb;
+    border-radius: 16px;
+    padding: 8px 14px;
+    font-size: 14px;
+    font-family: inherit;
+    color: #333;
+    outline: none;
+  }
+
+  .chat-frame.dark .msg-input { background: #2a2a2a; color: #ddd; }
+
+  .empty-hint {
+    margin: auto;
+    text-align: center;
+    color: rgba(255,255,255,0.7);
+    font-size: 14px;
+    padding: 40px 20px;
+  }
+
+  .chat-frame.dark .empty-hint { color: rgba(255,255,255,0.5); }
+
+  .dropzone {
+    width: 100%;
+    max-width: 500px;
+    margin-top: 16px;
+    border: 2px dashed #b0b0b0;
+    border-radius: 14px;
+    padding: 22px 16px;
+    text-align: center;
+    color: #666;
+    background: white;
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1.5;
+    transition: border-color 0.2s, background 0.2s;
+  }
+
+  .dropzone:hover { border-color: var(--accent); }
+
+  .dropzone.dragover {
+    border-color: var(--accent);
+    background: #eef5ff;
+    color: var(--accent);
+  }
+
+  .dropzone strong { color: #333; }
+
+  .site-footer {
+    margin-top: 32px;
+    padding: 16px 12px;
+    font-size: 11px;
+    color: #999;
+    text-align: center;
+    letter-spacing: 0.04em;
+  }
+
+  /* ── 강의 광고 (사이드바) ──────────────────────── */
+  .course-ad {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(160deg, #0a0a0a 0%, #0d1410 100%);
+    border-radius: 20px;
+    padding: 18px;
+    color: white;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.18);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    overflow: hidden;
+  }
+
+  .ad-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .ad-cta-group {
+    margin-top: auto;
+    padding-top: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .ad-cta-secondary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 11px 18px;
+    background: transparent;
+    color: #2EE89F;
+    text-decoration: none;
+    border: 1.5px solid rgba(46,232,159,0.5);
+    border-radius: 24px;
+    font-weight: 600;
+    font-size: 13px;
+    transition: background 0.15s, border-color 0.15s;
+  }
+
+  .ad-cta-secondary:hover {
+    background: rgba(46,232,159,0.1);
+    border-color: #2EE89F;
+  }
+
+  .ad-links {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    padding-top: 10px;
+    margin-top: 4px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+  }
+
+  .ad-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 6px;
+    color: rgba(255,255,255,0.75);
+    font-size: 12px;
+    text-decoration: none;
+    border: 1.5px solid rgba(46,232,159,0.45);
+    border-radius: 20px;
+    transition: color 0.15s, background 0.15s, border-color 0.15s;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .ad-link:hover {
+    color: #2EE89F;
+    background: rgba(46,232,159,0.1);
+    border-color: #2EE89F;
+  }
+
+  .ad-link .arrow {
+    margin-left: 4px;
+    opacity: 0.5;
+    transition: transform 0.15s, opacity 0.15s;
+  }
+
+  .ad-link:hover .arrow {
+    transform: translateX(2px);
+    opacity: 1;
+  }
+
+  .ad-visual {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    flex: 0 0 auto;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #B2C7D9;
+    display: block;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.18);
+    transition: transform 0.2s;
+  }
+
+  .ad-visual:hover { transform: translateY(-2px); }
+
+  .ad-visual img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+
+  .ad-body { padding: 2px 4px 6px; }
+
+  .ad-tag {
+    display: inline-block;
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    color: #2EE89F;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .ad-title {
+    font-size: 18px;
+    font-weight: 800;
+    line-height: 1.4;
+    margin-bottom: 10px;
+    word-break: keep-all;
+  }
+
+  .ad-title strong {
+    color: #2EE89F;
+    text-shadow: 0 0 14px rgba(46,232,159,0.4);
+  }
+
+  .ad-title-2 {
+    font-size: 14.5px;
+    font-weight: 700;
+    line-height: 1.5;
+    margin-top: 18px;
+    margin-bottom: 6px;
+    word-break: keep-all;
+    color: rgba(255,255,255,0.95);
+  }
+
+  .ad-title-2 strong {
+    color: #2EE89F;
+    text-shadow: 0 0 10px rgba(46,232,159,0.35);
+  }
+
+  .ad-sub {
+    font-size: 12.5px;
+    line-height: 1.65;
+    color: rgba(255,255,255,0.7);
+    margin-bottom: 4px;
+    word-break: keep-all;
+  }
+
+  .ad-cta {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 12px 18px;
+    background: #2EE89F;
+    color: #0c1d18;
+    text-decoration: none;
+    border-radius: 24px;
+    font-weight: 700;
+    font-size: 13.5px;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+
+  .ad-cta:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(46,232,159,0.3);
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+<header>
+  <h1>EMOTICON PREVIEW</h1>
+  <div class="toolbar">
+    <label class="toggle">
+      <input type="checkbox" id="darkToggle">
+      <span>다크모드</span>
+    </label>
+    <div class="color-picker">
+      <button class="btn" id="colorTrigger" title="배경색 선택">
+        <span class="swatch" id="currentSwatch"></span>
+        배경색
+      </button>
+      <div class="color-palette" id="colorPalette" hidden></div>
+    </div>
+    <button class="btn" id="replayBtn" title="모든 이모티콘 다시 재생">↻ 다시 재생</button>
+    <button class="btn" id="clearBtn" title="전체 삭제">전체 삭제</button>
+  </div>
+</header>
+
+<main class="phone-col">
+  <div class="chat-frame" id="chatFrame">
+    <div class="chat-area" id="chatArea">
+      <div class="empty-hint" id="emptyHint">
+        아래 영역에 파일을 끌어다 놓거나<br>클릭해서 이모티콘을 추가하세요
+      </div>
+    </div>
+    <div class="input-bar">
+      <button class="icon-btn">+</button>
+      <input class="msg-input" placeholder="메시지 입력" />
+      <button class="icon-btn">⌨</button>
+      <button class="icon-btn">#</button>
+    </div>
+  </div>
+
+  <div class="dropzone" id="dropzone">
+    <strong>파일을 끌어다 놓기</strong> 또는 <strong>클릭해서 선택</strong><br>
+    PNG · GIF · WebP (360 × 360 권장)
+    <input type="file" id="fileInput" multiple accept="image/png,image/gif,image/webp,image/jpeg" style="display:none">
+  </div>
+</main>
+
+<aside class="ad-col">
+  <section class="course-ad">
+    <a class="ad-visual"
+       href="https://www.latpeed.com/products/uL32q"
+       target="_blank"
+       rel="noopener noreferrer">
+      <img src="donjalcon-thumb.png" alt="돈잘콘 - 돈 잘 버는 이모티콘 만들기 클래스">
+    </a>
+    <div class="ad-body">
+      <h2 class="ad-title">
+        낙서같은 그림으로<br>
+        카카오 이모티콘 <strong>162개 승인</strong>받은 비결
+      </h2>
+      <p class="ad-sub">
+        그림 실력 없어도, 비전공자도, 육아맘도, 직장인도, 누구나 도전 가능
+      </p>
+      <h3 class="ad-title-2">
+        꾸준하게 <strong>돈 잘 버는</strong> 이모티콘 만드는 방법
+      </h3>
+      <p class="ad-sub">
+        162개 승인 데이터를 기반으로 만든 돈 잘 버는<br>
+        이모티콘 수익화 전략 아낌없이 공개합니다.
+      </p>
+      <div class="ad-cta-group">
+        <a class="ad-cta"
+           href="https://www.latpeed.com/products/uL32q"
+           target="_blank"
+           rel="noopener noreferrer">
+          돈잘콘 강의 보러가기 →
+        </a>
+        <a class="ad-cta-secondary"
+           href="https://youtu.be/vVKp-qv_r7g"
+           target="_blank"
+           rel="noopener noreferrer">
+          ▶ 맛보기 강의 바로가기
+        </a>
+        <div class="ad-links">
+          <a class="ad-link"
+             href="https://www.notion.so/g-nyang/G-NYANG-3305488e051b8132b492c45ee041f102?source=copy_link"
+             target="_blank"
+             rel="noopener noreferrer">
+            쥐냥 작가 소개 <span class="arrow">→</span>
+          </a>
+          <a class="ad-link"
+             href="https://e.kakao.com/creator/A0024G?t_obj=item_creatorbtn"
+             target="_blank"
+             rel="noopener noreferrer">
+            카카오 이모티콘 <span class="arrow">→</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+</aside>
+
+</div>
+
+<footer class="site-footer">
+  © 2026 G.NYANG. All rights reserved.
+</footer>
+
+<script>
+  const LOOP_COUNT = 4;
+
+  const dropzone      = document.getElementById('dropzone');
+  const fileInput     = document.getElementById('fileInput');
+  const chatArea      = document.getElementById('chatArea');
+  const chatFrame     = document.getElementById('chatFrame');
+  const darkToggle    = document.getElementById('darkToggle');
+  const replayBtn     = document.getElementById('replayBtn');
+  const clearBtn      = document.getElementById('clearBtn');
+  const emptyHint     = document.getElementById('emptyHint');
+  const colorTrigger  = document.getElementById('colorTrigger');
+  const colorPalette  = document.getElementById('colorPalette');
+  const currentSwatch = document.getElementById('currentSwatch');
+
+  // 추가된 이모티콘들의 재생 컨트롤러 모음
+  const items = [];
+
+  // ─── 배경색 팔레트 (카톡 기본 색상 베이스) ────────
+  const BG_COLORS = [
+    { name: '하늘 (기본)', hex: '#B2C7D9' },
+    { name: '흰색',        hex: '#FFFFFF' },
+    { name: '노랑',        hex: '#FFE83D' },
+    { name: '민트',        hex: '#7FD9B0' },
+    { name: '핑크',        hex: '#F58CA8' },
+    { name: '라벤더',      hex: '#B193DD' },
+    { name: '코랄',        hex: '#FF9580' },
+    { name: '그레이',      hex: '#9E9E9E' },
+  ];
+
+  let currentBg = BG_COLORS[0].hex;
+
+  BG_COLORS.forEach(c => {
+    const btn = document.createElement('button');
+    btn.style.background = c.hex;
+    btn.title = `${c.name} (${c.hex})`;
+    btn.dataset.hex = c.hex;
+    if (c.hex === currentBg) btn.classList.add('selected');
+    btn.addEventListener('click', () => setLightBg(c.hex));
+    colorPalette.appendChild(btn);
+  });
+
+  function setLightBg(hex) {
+    currentBg = hex;
+    chatFrame.style.setProperty('--bg-chat-light', hex);
+    currentSwatch.style.background = hex;
+    // 색을 골랐다는 건 라이트 모드를 보고 싶다는 뜻 → 다크 해제
+    darkToggle.checked = false;
+    chatFrame.classList.remove('dark');
+    // 선택 표시 갱신
+    colorPalette.querySelectorAll('button').forEach(b => {
+      b.classList.toggle('selected', b.dataset.hex === hex);
+    });
+    colorPalette.hidden = true;
+  }
+
+  // 초기 스왓치
+  chatFrame.style.setProperty('--bg-chat-light', currentBg);
+  currentSwatch.style.background = currentBg;
+
+  colorTrigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    colorPalette.hidden = !colorPalette.hidden;
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!colorPalette.contains(e.target) && !colorTrigger.contains(e.target)) {
+      colorPalette.hidden = true;
+    }
+  });
+
+  // ─── 다크모드 ─────────────────────────────────────
+  darkToggle.addEventListener('change', () => {
+    chatFrame.classList.toggle('dark', darkToggle.checked);
+  });
+
+  // ─── 드래그앤드롭 ─────────────────────────────────
+  dropzone.addEventListener('click', () => fileInput.click());
+
+  ['dragenter', 'dragover'].forEach(evt => {
+    dropzone.addEventListener(evt, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropzone.classList.add('dragover');
+    });
+  });
+
+  ['dragleave', 'drop'].forEach(evt => {
+    dropzone.addEventListener(evt, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropzone.classList.remove('dragover');
+    });
+  });
+
+  dropzone.addEventListener('drop', (e) => {
+    handleFiles(e.dataTransfer.files);
+  });
+
+  // 페이지 어디든 떨궈도 받기
+  ['dragover', 'drop'].forEach(evt => {
+    window.addEventListener(evt, (e) => e.preventDefault());
+  });
+  window.addEventListener('drop', (e) => {
+    if (!dropzone.contains(e.target) && !chatFrame.contains(e.target)) {
+      handleFiles(e.dataTransfer.files);
+    }
+  });
+
+  chatFrame.addEventListener('dragover', (e) => e.preventDefault());
+  chatFrame.addEventListener('drop', (e) => {
+    e.preventDefault();
+    handleFiles(e.dataTransfer.files);
+  });
+
+  fileInput.addEventListener('change', (e) => {
+    handleFiles(e.target.files);
+    fileInput.value = '';
+  });
+
+  async function handleFiles(fileList) {
+    const files = Array.from(fileList || []).filter(f => f.type.startsWith('image/'));
+    if (files.length === 0) return;
+    emptyHint.style.display = 'none';
+    for (const file of files) {
+      await addEmoticon(file);
+    }
+  }
+
+  // ─── WebP 애니메이션 감지 ─────────────────────────
+  // WebP는 RIFF 컨테이너 안에 ANIM 청크가 있으면 애니메이션이다.
+  async function isAnimatedWebP(arrayBuffer) {
+    const head = new Uint8Array(arrayBuffer.slice(0, Math.min(arrayBuffer.byteLength, 8192)));
+    const text = new TextDecoder('latin1').decode(head);
+    return text.startsWith('RIFF') && text.includes('WEBP') && text.includes('ANIM');
+  }
+
+  // ─── 이모티콘 추가 ─────────────────────────────────
+  async function addEmoticon(file) {
+    const arrayBuffer = await file.arrayBuffer();
+    const url = URL.createObjectURL(file);
+
+    const bubble = document.createElement('div');
+    bubble.className = 'chat-bubble';
+
+    const meta = document.createElement('div');
+    meta.className = 'bubble-meta';
+    meta.innerHTML = `<span class="unread">1</span><span>${formatTime()}</span>`;
+
+    const animated = file.type === 'image/webp' && await isAnimatedWebP(arrayBuffer);
+    const useDecoder = animated && ('ImageDecoder' in window);
+
+    let item;
+
+    if (useDecoder) {
+      // canvas + ImageDecoder로 루프 횟수 직접 제어
+      const canvas = document.createElement('canvas');
+      canvas.className = 'emoticon';
+      canvas.width = 360;
+      canvas.height = 360;
+      bubble.appendChild(meta);
+      bubble.appendChild(canvas);
+
+      try {
+        const decoder = new ImageDecoder({ data: arrayBuffer, type: 'image/webp' });
+        await decoder.tracks.ready;
+        const track = decoder.tracks.selectedTrack;
+        const frameCount = track.frameCount || 1;
+        const frames = [];
+
+        for (let i = 0; i < frameCount; i++) {
+          const result = await decoder.decode({ frameIndex: i });
+          // duration은 마이크로초 단위, ms로 변환 (없으면 100ms)
+          const ms = result.image.duration ? result.image.duration / 1000 : 100;
+          frames.push({ image: result.image, duration: ms });
+        }
+
+        item = { type: 'animated', canvas, frames, timerId: null };
+        items.push(item);
+        playAnimation(item, LOOP_COUNT);
+      } catch (err) {
+        console.warn('ImageDecoder 실패, img로 폴백:', err);
+        canvas.remove();
+        appendImg(bubble, url, file, items);
+      }
+    } else {
+      // 정적 이미지 또는 ImageDecoder 미지원
+      bubble.appendChild(meta);
+      appendImg(bubble, url, file, items);
+    }
+
+    chatArea.appendChild(bubble);
+    chatArea.scrollTop = chatArea.scrollHeight;
+  }
+
+  function appendImg(bubble, url, file, store) {
+    const img = document.createElement('img');
+    img.className = 'emoticon';
+    img.src = url;
+    img.alt = file.name;
+    bubble.appendChild(img);
+    store.push({ type: 'static', img, src: url });
+  }
+
+  // ─── 애니메이션 재생 (4회 루프) ───────────────────
+  function playAnimation(item, loopCount) {
+    const { canvas, frames } = item;
+    const ctx = canvas.getContext('2d');
+    let currentLoop = 0;
+    let currentFrame = 0;
+
+    // 진행 중인 타이머가 있으면 취소
+    if (item.timerId) clearTimeout(item.timerId);
+
+    function drawFrame() {
+      const frame = frames[currentFrame];
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(frame.image, 0, 0, canvas.width, canvas.height);
+
+      currentFrame++;
+      if (currentFrame >= frames.length) {
+        currentFrame = 0;
+        currentLoop++;
+        if (currentLoop >= loopCount) {
+          // 마지막 프레임에서 멈춤
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(frames[frames.length - 1].image, 0, 0, canvas.width, canvas.height);
+          item.timerId = null;
+          return;
+        }
+      }
+      item.timerId = setTimeout(drawFrame, frame.duration);
+    }
+
+    drawFrame();
+  }
+
+  // ─── 다시 재생 ─────────────────────────────────────
+  replayBtn.addEventListener('click', () => {
+    for (const item of items) {
+      if (item.type === 'animated') {
+        playAnimation(item, LOOP_COUNT);
+      } else if (item.type === 'static') {
+        // GIF/APNG의 경우 src 재할당으로 처음부터 재생
+        const src = item.src;
+        item.img.src = '';
+        // 다음 tick에 src 복원해야 브라우저가 새 로드로 인식
+        requestAnimationFrame(() => { item.img.src = src; });
+      }
+    }
+  });
+
+  // ─── 전체 삭제 ─────────────────────────────────────
+  clearBtn.addEventListener('click', () => {
+    for (const item of items) {
+      if (item.timerId) clearTimeout(item.timerId);
+      if (item.src) URL.revokeObjectURL(item.src);
+    }
+    items.length = 0;
+    chatArea.innerHTML = '';
+    chatArea.appendChild(emptyHint);
+    emptyHint.style.display = '';
+  });
+
+  // ─── 시간 표시 ─────────────────────────────────────
+  function formatTime() {
+    const d = new Date();
+    let h = d.getHours();
+    const m = String(d.getMinutes()).padStart(2, '0');
+    const ampm = h < 12 ? '오전' : '오후';
+    h = h % 12 || 12;
+    return `${ampm} ${String(h).padStart(2, '0')}:${m}`;
+  }
+</script>
+
+</body>
+</html>
