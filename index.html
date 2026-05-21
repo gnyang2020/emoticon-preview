@@ -625,8 +625,16 @@
 </div>
 
 <footer class="site-footer">
-  © 2026 G.NYANG. All rights reserved.
+  방문 <span id="visitCount">…</span>회 · © 2026 G.NYANG. All rights reserved.
 </footer>
+
+<script>
+  // 누적 방문 카운터 (무료 외부 카운터 API)
+  fetch('https://abacus.jasoncameron.dev/hit/gnyang-emoticon-preview/visits')
+    .then(r => r.json())
+    .then(d => { document.getElementById('visitCount').textContent = (d.value || 0).toLocaleString(); })
+    .catch(() => { document.getElementById('visitCount').textContent = '–'; });
+</script>
 
 <script>
   const LOOP_COUNT = 4;
